@@ -1,0 +1,7 @@
+apiVersion: infrastructure.cluster-k8s.io/v1alpha1
+kind: KINDCluster
+metadata:
+  name: kindcluster-sample
+spec:
+  # Add fields here
+  foo: bar
