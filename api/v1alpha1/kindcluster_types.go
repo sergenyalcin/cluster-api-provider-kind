@@ -20,6 +20,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+var KindOfKindCluster = "KINDCluster"
+
+type KindClusterCondition struct {
+	Timestamp metav1.Time `json:"timestamp,omitempty"`
+	Message   string      `json:"message,omitempty"`
+}
+
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
@@ -28,18 +35,25 @@ type KINDClusterSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of KINDCluster. Edit kindcluster_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	//+kubebuilder:validation:MaxLength=64
+	ClusterName string `json:"clusterName"`
 }
 
 // KINDClusterStatus defines the observed state of KINDCluster
 type KINDClusterStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
+	Ready bool `json:"ready,omitempty"`
+
+	Conditions []KindClusterCondition `json:"conditions,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.ready`,description="Status of the resource"
+//+kubebuilder:printcolumn:name="ClusterName",type=string,JSONPath=`.spec.clusterName`,description="ClusterName of the resource"
+//+kubebuilder:resource:path=kindclusters,shortName=kc
 
 // KINDCluster is the Schema for the kindclusters API
 type KINDCluster struct {
