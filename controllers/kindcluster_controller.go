@@ -34,7 +34,17 @@ import (
 	"sigs.k8s.io/kind/pkg/cluster"
 )
 
-var finalizerName = "kindclusters.infrastructure.cluster-k8s.io/cluster-finalizer"
+const (
+	finalizerName = "kindclusters.infrastructure.cluster-k8s.io/cluster-finalizer"
+
+	// Keys for logs
+	clusterNameKey = "clusterName"
+	secretNameKey  = "secretName"
+
+	// Kubeconfig output from the kind tool is stored in a temporary file
+	// This constant represents the template path of the temporary config file
+	configFilePathTemplate = "/tmp/%s_config"
+)
 
 // KINDClusterReconciler reconciles a KINDCluster object
 type KINDClusterReconciler struct {
@@ -49,33 +59,32 @@ type KINDClusterReconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the KINDCluster object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.8.3/pkg/reconcile
 func (r *KINDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	// Define the Logger instance of the Reconciler by using the request and the name of Reconciler
 	r.Log = ctrl.Log.WithValues(infrastructurev1alpha1.KindOfKindCluster, req.NamespacedName)
 	ctx = context.Background()
 
-	var kindcluster infrastructurev1alpha1.KINDCluster
-
+	// Reconciliation starts
 	r.Log.Info("Reconciling")
 
+	// Try to read the KINDCluster instance
+	var kindcluster infrastructurev1alpha1.KINDCluster
+
 	if err := r.Client.Get(ctx, req.NamespacedName, &kindcluster); err != nil {
+		// If the error type is not "IsNotFound", then return error
 		if !k8serrors.IsNotFound(err) {
 			r.Log.Error(err, "unable to fetch KINDCluster instance")
 
 			return ctrl.Result{}, err
 		}
 
+		// If the error type is "IsNotFound", log the information and do not return error
 		r.Log.Info("KINDCluster resources cannot be found")
 
 		return ctrl.Result{}, nil
 	}
 
+	// Create a provider object to list the clusters
 	provider := cluster.NewProvider()
 	clusterList, err := provider.List()
 
@@ -85,9 +94,14 @@ func (r *KINDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
+	// Read the cluster name from the spec of KINDCluster instance
 	clusterName := kindcluster.Spec.ClusterName
 
+	// Reconcile Deletion Process
+
+	// Check DeletionTimestamp to decide if object is in deletion
 	if kindcluster.ObjectMeta.DeletionTimestamp.IsZero() {
+		// Object is not in deletion, so try to add the finalizer if it does not have the finalizer
 		if !containsString(finalizerName, kindcluster.GetFinalizers()) {
 			controllerutil.AddFinalizer(&kindcluster, finalizerName)
 
@@ -102,11 +116,13 @@ func (r *KINDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			return ctrl.Result{}, nil
 		}
 	} else {
+		// Object is in deletion, so check the finalizer and delete the related resources, cluster and config secret
 		if containsString(finalizerName, kindcluster.GetFinalizers()) {
 			if err := r.deleteResources(provider, clusterName, req.Namespace); err != nil {
 				return ctrl.Result{}, err
 			}
 
+			// Remove finalizer
 			controllerutil.RemoveFinalizer(&kindcluster, finalizerName)
 
 			if err := r.Client.Update(ctx, &kindcluster); err != nil {
@@ -119,49 +135,69 @@ func (r *KINDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	if containsString(clusterName, clusterList) {
-		r.Log.Info("Specified cluster exists", "clustername", clusterName)
+	var creationError error
 
+	// Check if the specified cluster exists
+	if containsString(clusterName, clusterList) {
+		// Cluster exists
+		r.Log.Info("Specified cluster exists", clusterNameKey, clusterName)
+
+		// Set the failureMessage to empty string and the ready bool to true
+		kindcluster.Status.FailureMessage = ""
 		kindcluster.Status.Ready = true
 	} else {
-		r.Log.Info("Specified cluster does not exist, will be created...", "clustername", clusterName)
+		// Cluster does not exist
+		r.Log.Info("Specified cluster does not exist, will be created...", clusterNameKey, clusterName)
 
-		if err := provider.Create(clusterName, cluster.CreateWithKubeconfigPath(fmt.Sprintf("/tmp/%s_config", clusterName))); err != nil {
-			r.Log.Error(err, "unable to create cluster")
+		// Create the kind cluster
+		if creationError = provider.Create(clusterName, cluster.CreateWithKubeconfigPath(getConfigFilePath(clusterName))); creationError != nil {
+			r.Log.Error(creationError, "unable to create cluster")
 
-			return ctrl.Result{}, err
+			// If an issue occurs while creation, set the failure message and the ready bool to false
+			kindcluster.Status.FailureMessage = fmt.Sprintf("Cluster cannot be crated: %s", creationError)
+			kindcluster.Status.Ready = false
+		} else {
+			// If cluster was successfully created, then add a status condition
+			kindcluster.Status.Conditions = append(kindcluster.Status.Conditions,
+				infrastructurev1alpha1.KindClusterCondition{
+					Timestamp: metav1.Now(),
+					Message:   "Cluster was successfully created",
+				})
+
+			r.Log.Info("Specified cluster was successfully created", clusterNameKey, clusterName)
 		}
-
-		kindcluster.Status.Conditions = append(kindcluster.Status.Conditions,
-			infrastructurev1alpha1.KindClusterCondition{
-				Timestamp: metav1.Now(),
-				Message:   "Cluster was successfully created",
-			})
-
-		r.Log.Info("Specified cluster was successfully created", "clustername:", clusterName)
 	}
 
+	// Update status of KINDCluster
 	if err := r.Client.Status().Update(ctx, &kindcluster); err != nil {
 		r.Log.Error(err, "unable to update KINDCluster status")
 
 		return ctrl.Result{}, err
 	}
 
-	r.Log.Info("KINDCluster status was updated", "clustername:", clusterName)
+	// If an error occured while the creation of cluster, return the error after the status subresource was updated
+	if creationError != nil {
+		return ctrl.Result{}, creationError
+	}
 
+	r.Log.Info("KINDCluster status was updated", clusterNameKey, clusterName)
+
+	// Store the kubeconfig in  a secret
 	if err := storeKubeconfigInSecret(r.Client, provider, clusterName,
-		fmt.Sprintf("%s-%s", clusterName, "config"), req.Namespace, r.Log); err != nil {
+		getConfigSecretName(clusterName), req.Namespace, r.Log); err != nil {
 
 		r.Log.Error(err, "unable to store kubeconfig")
 
 		return ctrl.Result{}, err
 	}
 
+	// Reconciliation finishes
 	r.Log.Info("Reconciled")
 
 	return ctrl.Result{}, nil
 }
 
+// Check whether a slice contains a specified string
 func containsString(s string, slice []string) bool {
 	for _, finalizer := range slice {
 		if finalizer == s {
@@ -172,21 +208,37 @@ func containsString(s string, slice []string) bool {
 	return false
 }
 
-func (r *KINDClusterReconciler) deleteResources(provider *cluster.Provider, clusterName, namespace string) error {
-	r.Log.Info("Cluster is deleting...", "clustername", clusterName)
+// Get the secret name from the clustername
+func getConfigSecretName(clusterName string) string {
+	return fmt.Sprintf("%s-%s", clusterName, "config")
+}
 
+// Get the kubeconfig file path from the clustername
+func getConfigFilePath(clusterName string) string {
+	return fmt.Sprintf(configFilePathTemplate, clusterName)
+}
+
+// Delete the external resources: kind cluster and config secret of cluster
+func (r *KINDClusterReconciler) deleteResources(provider *cluster.Provider, clusterName, namespace string) error {
+	r.Log.Info("Cluster is deleting...", clusterNameKey, clusterName)
+
+	// Delete the kind cluster
+	// No check has been done as to whether the cluster already exists.
+	// Because the kind tool is idempotent and it does not return an error when it cannot find the cluster.
 	if err := provider.Delete(clusterName, ""); err != nil {
 		r.Log.Error(err, "unable to delete cluster")
 
 		return err
 	}
 
-	r.Log.Info("Cluster successfully deleted", "clustername", clusterName)
+	r.Log.Info("Cluster successfully deleted", clusterNameKey, clusterName)
 
-	r.Log.Info("Config secret is deleting...", "clustername", clusterName)
+	r.Log.Info("Config secret is deleting...", clusterNameKey, clusterName)
 
+	// Delete the config secret
+	// If it does not exist, ignore the deletion
 	if err := r.Client.Delete(context.Background(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{
-		Name:      fmt.Sprintf("%s-%s", clusterName, "config"),
+		Name:      getConfigSecretName(clusterName),
 		Namespace: namespace,
 	}}); err != nil {
 		if !k8serrors.IsNotFound(err) {
@@ -196,52 +248,64 @@ func (r *KINDClusterReconciler) deleteResources(provider *cluster.Provider, clus
 		}
 	}
 
-	r.Log.Info("Config secret successfully deleted", "clustername", clusterName)
+	r.Log.Info("Config secret successfully deleted", clusterNameKey, clusterName)
 
 	return nil
 }
 
+// Store the kubeconfig of cluster in a secret
 func storeKubeconfigInSecret(c client.Client, provider *cluster.Provider, clusterName, secretName, namespace string, log logr.Logger) error {
 	kubeconfigSecret := &corev1.Secret{}
 
+	// Try to get the config secret
 	if err := c.Get(context.Background(),
 		types.NamespacedName{
 			Name:      secretName,
 			Namespace: namespace,
 		}, kubeconfigSecret); err != nil {
+
+		// If the error type is not "IsNotFound", then return error
 		if !k8serrors.IsNotFound(err) {
 			return err
 		}
 
-		kubeconfigBody, err := ioutil.ReadFile(fmt.Sprintf("/tmp/%s_config", clusterName))
+		// If the error type is "IsNotFound", this means that the config secret has not been created
+		// Start to create the config secret
+
+		// Read the kubeconfig from the temporary file
+		kubeconfigBody, err := ioutil.ReadFile(getConfigFilePath(clusterName))
 
 		if err != nil {
 			return err
 
 		}
 
+		// Create the secret object
 		kubeconfigSecret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      secretName,
 				Namespace: namespace,
 			},
 			Data: map[string][]byte{
-				"kubeconfig": kubeconfigBody,
+				"config": kubeconfigBody,
 			},
 		}
 
+		// Create the real secret object
 		if err := c.Create(context.Background(), kubeconfigSecret); err != nil {
 			return err
 		}
 
-		log.Info(fmt.Sprintf("%s config secret successfully created", secretName))
+		log.Info("Config secret successfully created", secretNameKey, secretName, clusterNameKey, clusterName)
 	}
 
+	// If err is nil, this means that the config secret was successfully created earlier, so do nothing and return nil
 	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *KINDClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Watch the KINDCluster instances to trigger the reconciler
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&infrastructurev1alpha1.KINDCluster{}).
 		Complete(r)

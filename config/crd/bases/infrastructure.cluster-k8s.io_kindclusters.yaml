@@ -48,6 +48,8 @@ spec:
             description: KINDClusterSpec defines the desired state of KINDCluster
             properties:
               clusterName:
+                description: Specifies the cluster name, the KIND Cluster will be
+                  created with this name
                 maxLength: 64
                 type: string
             required:
@@ -57,16 +59,26 @@ spec:
             description: KINDClusterStatus defines the observed state of KINDCluster
             properties:
               conditions:
+                description: Represents the status conditions, they are important
+                  to see the historical infromation
                 items:
                   properties:
                     message:
+                      description: Represents the specific message for the event
                       type: string
                     timestamp:
+                      description: Represents the time when the event occurred
                       format: date-time
                       type: string
                   type: object
                 type: array
+              failureMessage:
+                description: Represents the failure reason of the cluster creation,
+                  it reports the error that returned from the KIND tool
+                type: string
               ready:
+                description: Represents the state of cluster true for ready cluster,
+                  false for unready/uncreated cluster
                 type: boolean
             type: object
         type: object

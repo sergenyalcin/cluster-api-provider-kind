@@ -23,8 +23,11 @@ import (
 var KindOfKindCluster = "KINDCluster"
 
 type KindClusterCondition struct {
+	// Represents the time when the event occurred
 	Timestamp metav1.Time `json:"timestamp,omitempty"`
-	Message   string      `json:"message,omitempty"`
+
+	// Represents the specific message for the event
+	Message string `json:"message,omitempty"`
 }
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -36,6 +39,7 @@ type KINDClusterSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	//+kubebuilder:validation:MaxLength=64
+	// Specifies the cluster name, the KIND Cluster will be created with this name
 	ClusterName string `json:"clusterName"`
 }
 
@@ -44,8 +48,14 @@ type KINDClusterStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
+	// Represents the state of cluster
+	// true for ready cluster, false for unready/uncreated cluster
 	Ready bool `json:"ready,omitempty"`
 
+	// Represents the failure reason of the cluster creation, it reports the error that returned from the KIND tool
+	FailureMessage string `json:"failureMessage,omitempty"`
+
+	// Represents the status conditions, they are important to see the historical infromation
 	Conditions []KindClusterCondition `json:"conditions,omitempty"`
 }
 
