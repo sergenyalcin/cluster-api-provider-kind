@@ -28,6 +28,9 @@ type KindClusterCondition struct {
 
 	// Represents the specific message for the event
 	Message string `json:"message,omitempty"`
+
+	// Represents the detailed reason for the event
+	Reason string `json:"reason,omitempty"`
 }
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -50,7 +53,7 @@ type KINDClusterStatus struct {
 
 	// Represents the state of cluster
 	// true for ready cluster, false for unready/uncreated cluster
-	Ready bool `json:"ready,omitempty"`
+	Ready *bool `json:"ready,omitempty"`
 
 	// Represents the failure reason of the cluster creation, it reports the error that returned from the KIND tool
 	FailureMessage string `json:"failureMessage,omitempty"`

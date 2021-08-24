@@ -66,6 +66,9 @@ spec:
                     message:
                       description: Represents the specific message for the event
                       type: string
+                    reason:
+                      description: Represents the detailed reason for the event
+                      type: string
                     timestamp:
                       description: Represents the time when the event occurred
                       format: date-time

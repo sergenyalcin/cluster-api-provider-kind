@@ -142,9 +142,11 @@ func (r *KINDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		// Cluster exists
 		r.Log.Info("Specified cluster exists", clusterNameKey, clusterName)
 
+		trueBool := true
+
 		// Set the failureMessage to empty string and the ready bool to true
 		kindcluster.Status.FailureMessage = ""
-		kindcluster.Status.Ready = true
+		kindcluster.Status.Ready = &trueBool
 	} else {
 		// Cluster does not exist
 		r.Log.Info("Specified cluster does not exist, will be created...", clusterNameKey, clusterName)
@@ -153,9 +155,19 @@ func (r *KINDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		if creationError = provider.Create(clusterName, cluster.CreateWithKubeconfigPath(getConfigFilePath(clusterName))); creationError != nil {
 			r.Log.Error(creationError, "unable to create cluster")
 
+			falseBool := false
+
+			// If an issue occurs while creation, then add a status condition
+			kindcluster.Status.Conditions = append(kindcluster.Status.Conditions,
+				infrastructurev1alpha1.KindClusterCondition{
+					Timestamp: metav1.Now(),
+					Message:   "Cluster cannot be created",
+					Reason:    creationError.Error(),
+				})
+
 			// If an issue occurs while creation, set the failure message and the ready bool to false
 			kindcluster.Status.FailureMessage = fmt.Sprintf("Cluster cannot be crated: %s", creationError)
-			kindcluster.Status.Ready = false
+			kindcluster.Status.Ready = &falseBool
 		} else {
 			// If cluster was successfully created, then add a status condition
 			kindcluster.Status.Conditions = append(kindcluster.Status.Conditions,
