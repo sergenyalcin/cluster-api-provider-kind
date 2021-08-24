@@ -43,7 +43,7 @@ const (
 
 	// Kubeconfig output from the kind tool is stored in a temporary file
 	// This constant represents the template path of the temporary config file
-	configFilePathTemplate = "/tmp/%s_config"
+	configFilePathTemplate = "/tmp/%s-config"
 )
 
 // KINDClusterReconciler reconciles a KINDCluster object
@@ -195,7 +195,7 @@ func (r *KINDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	r.Log.Info("KINDCluster status was updated", clusterNameKey, clusterName)
 
 	// Store the kubeconfig in  a secret
-	if err := storeKubeconfigInSecret(r.Client, provider, clusterName,
+	if err := storeKubeconfigInSecret(r.Client, clusterName,
 		getConfigSecretName(clusterName), req.Namespace, r.Log); err != nil {
 
 		r.Log.Error(err, "unable to store kubeconfig")
@@ -266,7 +266,7 @@ func (r *KINDClusterReconciler) deleteResources(provider *cluster.Provider, clus
 }
 
 // Store the kubeconfig of cluster in a secret
-func storeKubeconfigInSecret(c client.Client, provider *cluster.Provider, clusterName, secretName, namespace string, log logr.Logger) error {
+func storeKubeconfigInSecret(c client.Client, clusterName, secretName, namespace string, log logr.Logger) error {
 	kubeconfigSecret := &corev1.Secret{}
 
 	// Try to get the config secret
