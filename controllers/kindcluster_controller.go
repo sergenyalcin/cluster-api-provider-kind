@@ -103,23 +103,17 @@ func (r *KINDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 	} else {
 		if containsString(finalizerName, kindcluster.GetFinalizers()) {
-			r.Log.Info("Specified cluster exists, deleting...", "clustername", clusterName)
-
 			if err := r.deleteResources(provider, clusterName, req.Namespace); err != nil {
 				return ctrl.Result{}, err
 			}
 
-			r.Log.Info("Specified cluster successfully deleted", "clustername", clusterName)
-		} else {
-			r.Log.Info("Specified cluster does not exits, skipping...", "clustername", clusterName)
-		}
+			controllerutil.RemoveFinalizer(&kindcluster, finalizerName)
 
-		controllerutil.RemoveFinalizer(&kindcluster, finalizerName)
+			if err := r.Client.Update(ctx, &kindcluster); err != nil {
+				r.Log.Error(err, "unable to update KINDCluster")
 
-		if err := r.Client.Update(ctx, &kindcluster); err != nil {
-			r.Log.Error(err, "unable to update KINDCluster")
-
-			return ctrl.Result{}, err
+				return ctrl.Result{}, err
+			}
 		}
 
 		return ctrl.Result{}, nil
@@ -135,12 +129,14 @@ func (r *KINDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		if err := provider.Create(clusterName, cluster.CreateWithKubeconfigPath(fmt.Sprintf("/tmp/%s_config", clusterName))); err != nil {
 			r.Log.Error(err, "unable to create cluster")
 
-			kindcluster.Status.Conditions = append(kindcluster.Status.Conditions, fillStatusCondition("Cluster cannot be created"))
-
 			return ctrl.Result{}, err
 		}
 
-		kindcluster.Status.Conditions = append(kindcluster.Status.Conditions, fillStatusCondition("Cluster successfully created"))
+		kindcluster.Status.Conditions = append(kindcluster.Status.Conditions,
+			infrastructurev1alpha1.KindClusterCondition{
+				Timestamp: metav1.Now(),
+				Message:   "Cluster was successfully created",
+			})
 
 		r.Log.Info("Specified cluster was successfully created", "clustername:", clusterName)
 	}
@@ -176,28 +172,31 @@ func containsString(s string, slice []string) bool {
 	return false
 }
 
-func fillStatusCondition(message string) (statusCondition infrastructurev1alpha1.KindClusterCondition) {
-	statusCondition.Timestamp = metav1.Now()
-	statusCondition.Message = message
-
-	return
-}
-
 func (r *KINDClusterReconciler) deleteResources(provider *cluster.Provider, clusterName, namespace string) error {
+	r.Log.Info("Cluster is deleting...", "clustername", clusterName)
+
 	if err := provider.Delete(clusterName, ""); err != nil {
 		r.Log.Error(err, "unable to delete cluster")
 
 		return err
 	}
 
+	r.Log.Info("Cluster successfully deleted", "clustername", clusterName)
+
+	r.Log.Info("Config secret is deleting...", "clustername", clusterName)
+
 	if err := r.Client.Delete(context.Background(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{
 		Name:      fmt.Sprintf("%s-%s", clusterName, "config"),
 		Namespace: namespace,
 	}}); err != nil {
-		r.Log.Error(err, "unable to delete kubeconfig secret of cluster")
+		if !k8serrors.IsNotFound(err) {
+			r.Log.Error(err, "unable to delete kubeconfig secret of cluster")
 
-		return err
+			return err
+		}
 	}
+
+	r.Log.Info("Config secret successfully deleted", "clustername", clusterName)
 
 	return nil
 }
