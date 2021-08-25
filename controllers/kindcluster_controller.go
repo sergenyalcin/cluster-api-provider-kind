@@ -118,7 +118,11 @@ func (r *KINDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	} else {
 		// Object is in deletion, so check the finalizer and delete the related resources, cluster and config secret
 		if containsString(finalizerName, kindcluster.GetFinalizers()) {
-			if err := r.deleteResources(provider, clusterName, req.Namespace); err != nil {
+			if err := deleteCluster(provider, clusterName, r.Log); err != nil {
+				return ctrl.Result{}, err
+			}
+
+			if err := deleteConfigSecret(r.Client, r.Log, clusterName, req.Namespace); err != nil {
 				return ctrl.Result{}, err
 			}
 
@@ -230,37 +234,42 @@ func getConfigFilePath(clusterName string) string {
 	return fmt.Sprintf(configFilePathTemplate, clusterName)
 }
 
-// Delete the external resources: kind cluster and config secret of cluster
-func (r *KINDClusterReconciler) deleteResources(provider *cluster.Provider, clusterName, namespace string) error {
-	r.Log.Info("Cluster is deleting...", clusterNameKey, clusterName)
+// Delete the external resources: kind cluster
+func deleteCluster(provider *cluster.Provider, clusterName string, log logr.Logger) error {
+	log.Info("Cluster is deleting...", clusterNameKey, clusterName)
 
 	// Delete the kind cluster
 	// No check has been done as to whether the cluster already exists.
 	// Because the kind tool is idempotent and it does not return an error when it cannot find the cluster.
 	if err := provider.Delete(clusterName, ""); err != nil {
-		r.Log.Error(err, "unable to delete cluster")
+		log.Error(err, "unable to delete cluster")
 
 		return err
 	}
 
-	r.Log.Info("Cluster successfully deleted", clusterNameKey, clusterName)
+	log.Info("Cluster successfully deleted", clusterNameKey, clusterName)
 
-	r.Log.Info("Config secret is deleting...", clusterNameKey, clusterName)
+	return nil
+}
+
+// Delete the external resources: config secret
+func deleteConfigSecret(c client.Client, log logr.Logger, clusterName, namespace string) error {
+	log.Info("Config secret is deleting...", clusterNameKey, clusterName)
 
 	// Delete the config secret
 	// If it does not exist, ignore the deletion
-	if err := r.Client.Delete(context.Background(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{
+	if err := c.Delete(context.Background(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{
 		Name:      getConfigSecretName(clusterName),
 		Namespace: namespace,
 	}}); err != nil {
 		if !k8serrors.IsNotFound(err) {
-			r.Log.Error(err, "unable to delete kubeconfig secret of cluster")
+			log.Error(err, "unable to delete kubeconfig secret of cluster")
 
 			return err
 		}
 	}
 
-	r.Log.Info("Config secret successfully deleted", clusterNameKey, clusterName)
+	log.Info("Config secret successfully deleted", clusterNameKey, clusterName)
 
 	return nil
 }

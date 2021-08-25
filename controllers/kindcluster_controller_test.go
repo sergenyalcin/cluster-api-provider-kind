@@ -10,12 +10,15 @@ import (
 	infrastructurev1alpha1 "github.com/sergenyalcin/cluster-api-provider-kind/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+var defaultNamespace = "default"
 
 func Test_ContainsString(t *testing.T) {
 	var testCases = []struct {
@@ -70,11 +73,9 @@ func Test_GetConfigFilePath(t *testing.T) {
 }
 
 func Test_StoreKubeconfigInSecret(t *testing.T) {
-	infrastructurev1alpha1.AddToScheme(scheme.Scheme)
-
 	c := fake.NewFakeClientWithScheme(scheme.Scheme, &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "default",
+			Name: defaultNamespace,
 		},
 	})
 
@@ -92,7 +93,7 @@ func Test_StoreKubeconfigInSecret(t *testing.T) {
 		namespace   string
 		result      corev1.Secret
 	}{
-		{"test", "test-config", "default", resultSecret},
+		{"test", "test-config", defaultNamespace, resultSecret},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.clusterName, func(t *testing.T) {
@@ -122,6 +123,57 @@ func Test_StoreKubeconfigInSecret(t *testing.T) {
 			if string(tc.result.Data["config"]) != string(secret.Data["config"]) {
 				t.Errorf("storeKubeconfigInSecret() = %v, want %v", tc.result.Data, secret.Data)
 			}
+		})
+	}
+}
+
+func Test_DeleteConfigSecret(t *testing.T) {
+	secretName := "test-cluster-config"
+
+	kubeconfigSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: defaultNamespace,
+		},
+		Data: map[string][]byte{
+			"config": []byte("kubeconfigData"),
+		},
+	}
+
+	c := fake.NewFakeClientWithScheme(scheme.Scheme, &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: defaultNamespace,
+		},
+	}, kubeconfigSecret)
+
+	log := ctrl.Log.WithValues(infrastructurev1alpha1.KindOfKindCluster)
+
+	var testCases = []struct {
+		clusterName string
+	}{
+		{"test-cluster"},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.clusterName, func(t *testing.T) {
+			if err := deleteConfigSecret(c, log, tc.clusterName, defaultNamespace); err != nil {
+				panic(err)
+			}
+
+			deletedSecret := &corev1.Secret{}
+
+			if err := c.Get(context.Background(),
+				types.NamespacedName{
+					Name:      secretName,
+					Namespace: defaultNamespace,
+				}, deletedSecret); err != nil {
+
+				if !k8serrors.IsNotFound(err) {
+					panic(err)
+				}
+			} else {
+				t.Errorf("deleteConfigSecret() = %s secret found", secretName)
+			}
+
 		})
 	}
 }
