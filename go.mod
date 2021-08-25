@@ -8,8 +8,6 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/onsi/ginkgo v1.16.4
-	github.com/onsi/gomega v1.14.0
 	github.com/spf13/cobra v1.2.1 // indirect
 	golang.org/x/oauth2 v0.0.0-20210628180205-a41e5a781914 // indirect
 	k8s.io/api v0.21.3
