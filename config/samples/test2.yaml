@@ -1,6 +1,6 @@
 apiVersion: infrastructure.cluster-k8s.io/v1alpha1
 kind: KINDCluster
 metadata:
-  name: test-cluster
+  name: test-cluster-2
 spec:
-  clusterName: test
+  clusterName: test-2

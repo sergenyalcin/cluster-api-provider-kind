@@ -1,0 +1,6 @@
+apiVersion: infrastructure.cluster-k8s.io/v1alpha1
+kind: KINDCluster
+metadata:
+  name: too-long-name
+spec:
+  clusterName: the-name-of-cluster-is-too-long-the-name-of-cluster-is-too-long-the-name-of-cluster-is-too-long
