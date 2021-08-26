@@ -55,7 +55,7 @@ type KINDClusterStatus struct {
 	// true for ready cluster, false for unready/uncreated cluster
 	Ready *bool `json:"ready,omitempty"`
 
-	// Represents the failure reason of the cluster creation, it reports the error that returned from the KIND tool
+	// Represents the failure reason of the cluster creation, it reports the error that returned from the kind tool
 	FailureMessage string `json:"failureMessage,omitempty"`
 
 	// Represents the status conditions, they are important to see the historical infromation

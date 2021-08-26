@@ -84,7 +84,7 @@ func (r *KINDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	// Create a provider object to list the clusters
+	// Create a provider object to create, delete, list the clusters
 	provider := cluster.NewProvider()
 	clusterList, err := provider.List()
 
@@ -96,8 +96,6 @@ func (r *KINDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	// Read the cluster name from the spec of KINDCluster instance
 	clusterName := kindcluster.Spec.ClusterName
-
-	// Reconcile Deletion Process
 
 	// Check DeletionTimestamp to decide if object is in deletion
 	if kindcluster.ObjectMeta.DeletionTimestamp.IsZero() {
@@ -191,12 +189,12 @@ func (r *KINDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
+	r.Log.Info("KINDCluster status was updated", clusterNameKey, clusterName)
+
 	// If an error occured while the creation of cluster, return the error after the status subresource was updated
 	if creationError != nil {
 		return ctrl.Result{}, creationError
 	}
-
-	r.Log.Info("KINDCluster status was updated", clusterNameKey, clusterName)
 
 	// Store the kubeconfig in  a secret
 	if err := storeKubeconfigInSecret(r.Client, clusterName,
@@ -298,7 +296,6 @@ func storeKubeconfigInSecret(c client.Client, clusterName, secretName, namespace
 
 		if err != nil {
 			return err
-
 		}
 
 		// Create the secret object
