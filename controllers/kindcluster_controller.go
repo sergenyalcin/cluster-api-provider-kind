@@ -38,13 +38,26 @@ const (
 	finalizerName = "kindclusters.infrastructure.cluster-k8s.io/cluster-finalizer"
 
 	// Keys for logs
-	clusterNameKey = "clusterName"
-	secretNameKey  = "secretName"
+	clusterNameKey    = "clusterName"
+	secretNameKey     = "secretName"
+	k8sVersionNameKey = "k8sversion"
 
 	// Kubeconfig output from the kind tool is stored in a temporary file
 	// This constant represents the template path of the temporary config file
 	configFilePathTemplate = "/tmp/%s-config"
 )
+
+var k8sVersionImages = map[string]string{
+	"1.22": "kindest/node:v1.22.0",
+	"1.21": "kindest/node:v1.21.1",
+	"1.20": "kindest/node:v1.20.7",
+	"1.19": "kindest/node:v1.19.11",
+	"1.18": "kindest/node:v1.18.19",
+	"1.17": "kindest/node:v1.17.17",
+	"1.16": "kindest/node:v1.16.15",
+	"1.15": "kindest/node:v1.15.12",
+	"1.14": "kindest/node:v1.14.10",
+}
 
 // KINDClusterReconciler reconciles a KINDCluster object
 type KINDClusterReconciler struct {
@@ -96,6 +109,7 @@ func (r *KINDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	// Read the cluster name from the spec of KINDCluster instance
 	clusterName := kindcluster.Spec.ClusterName
+	kubernetesVersion := kindcluster.Spec.KubernetesVersion
 
 	// Check DeletionTimestamp to decide if object is in deletion
 	if kindcluster.ObjectMeta.DeletionTimestamp.IsZero() {
@@ -154,7 +168,9 @@ func (r *KINDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		r.Log.Info("Specified cluster does not exist, will be created...", clusterNameKey, clusterName)
 
 		// Create the kind cluster
-		if creationError = provider.Create(clusterName, cluster.CreateWithKubeconfigPath(getConfigFilePath(clusterName))); creationError != nil {
+		if creationError = provider.Create(clusterName,
+			cluster.CreateWithKubeconfigPath(getConfigFilePath(clusterName)),
+			cluster.CreateWithNodeImage(k8sVersionImages[kubernetesVersion])); creationError != nil {
 			r.Log.Error(creationError, "unable to create cluster")
 
 			falseBool := false
@@ -178,7 +194,7 @@ func (r *KINDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 					Message:   "Cluster was successfully created",
 				})
 
-			r.Log.Info("Specified cluster was successfully created", clusterNameKey, clusterName)
+			r.Log.Info("Specified cluster was successfully created", clusterNameKey, clusterName, k8sVersionNameKey, kubernetesVersion)
 		}
 	}
 

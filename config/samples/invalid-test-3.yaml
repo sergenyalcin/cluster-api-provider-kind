@@ -1,7 +1,7 @@
 apiVersion: infrastructure.cluster-k8s.io/v1alpha1
 kind: KINDCluster
 metadata:
-  name: test-cluster-2
+  name: invalid-versioned-cluster
 spec:
-  clusterName: test-2
-  kubernetesVersion: "1.20"
+  clusterName: test
+  kubernetesVersion: "1.13"

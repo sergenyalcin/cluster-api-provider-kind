@@ -19,13 +19,17 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - description: Status of the resource
-      jsonPath: .status.ready
-      name: Ready
+    - description: KubernetesVersion of the resource
+      jsonPath: .spec.kubernetesVersion
+      name: KubernetesVersion
       type: string
     - description: ClusterName of the resource
       jsonPath: .spec.clusterName
       name: ClusterName
+      type: string
+    - description: Status of the resource
+      jsonPath: .status.ready
+      name: Ready
       type: string
     name: v1alpha1
     schema:
@@ -51,6 +55,21 @@ spec:
                 description: Specifies the cluster name, the KIND Cluster will be
                   created with this name
                 maxLength: 64
+                type: string
+              kubernetesVersion:
+                default: "1.21"
+                description: Specifies the kubernetes version, the KIND Cluster will
+                  be created with this version
+                enum:
+                - "1.22"
+                - "1.21"
+                - "1.20"
+                - "1.19"
+                - "1.18"
+                - "1.17"
+                - "1.16"
+                - "1.15"
+                - "1.14"
                 type: string
             required:
             - clusterName

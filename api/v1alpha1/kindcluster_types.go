@@ -44,7 +44,18 @@ type KINDClusterSpec struct {
 	//+kubebuilder:validation:MaxLength=64
 	// Specifies the cluster name, the KIND Cluster will be created with this name
 	ClusterName string `json:"clusterName"`
+
+	//+kubebuilder:validation:Enum="1.22";"1.21";"1.20";"1.19";"1.18";"1.17";"1.16";"1.15";"1.14"
+	//+kubebuilder:default="1.21"
+	// Specifies the kubernetes version, the KIND Cluster will be created with this version
+	KubernetesVersion string `json:"kubernetesVersion,omitempty"`
 }
+
+// - Add maybe another field to spec e.g. Kubernetes version
+// - Show editor during code demo
+// - Send slides when done to marcel@giantswarm.io
+// - Make sure to have 2 quesitons at the end
+// - Time yourself at least once
 
 // KINDClusterStatus defines the observed state of KINDCluster
 type KINDClusterStatus struct {
@@ -64,8 +75,9 @@ type KINDClusterStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.ready`,description="Status of the resource"
+//+kubebuilder:printcolumn:name="KubernetesVersion",type=string,JSONPath=`.spec.kubernetesVersion`,description="KubernetesVersion of the resource"
 //+kubebuilder:printcolumn:name="ClusterName",type=string,JSONPath=`.spec.clusterName`,description="ClusterName of the resource"
+//+kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.ready`,description="Status of the resource"
 //+kubebuilder:resource:path=kindclusters,shortName=kc
 
 // KINDCluster is the Schema for the kindclusters API
