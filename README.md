@@ -67,7 +67,7 @@ For example, should the spec of a KINDCluster instance with cluster name X be ch
 
 At this point it was necessary to make the following basic assumptions:
 
-- The spec.clusterName field of a created KINDCluster will not be changed after a certain time. (I didn't define this field as immutable in the code, but I implemented the controller, assuming it wouldn't.)
+- The spec.clusterName field of a created KINDCluster will not be changed after a certain time. (I didn't define this field as immutable in the code, but I implemented the controller, assuming it wouldn't. A webhook can be written to validate this.)
 
 - I designed the API thinking that the spec.clusterName field should be mandatory. Therefore, it was assumed that a name should be given at the creation stage of each cluster.
 
@@ -81,6 +81,8 @@ future?
 - There is no node specific structure in the current provider implementation. This may be one of the future tasks, for example, how many nodes should be created in a cluster and with which resources.
 
 - It can be added to an optional field spec so that the control-plane node is ready.
+
+- A validating webhook can be written to manage the validations of fields.
 
 - Status conditions can be developed, for example specific types can be defined for messages and reasons.
 
