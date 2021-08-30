@@ -53,7 +53,8 @@ spec:
             properties:
               clusterName:
                 description: Specifies the cluster name, the KIND Cluster will be
-                  created with this name
+                  created with this name It has not an omitempty tag, so this field
+                  is required
                 maxLength: 64
                 type: string
               kubernetesVersion:
@@ -100,7 +101,9 @@ spec:
                 type: string
               ready:
                 description: Represents the state of cluster true for ready cluster,
-                  false for unready/uncreated cluster
+                  false for unready/uncreated cluster The information about whether
+                  the cluster is ready or not is obtained by relying on the Kind library
+                  functions.
                 type: boolean
             type: object
         type: object
