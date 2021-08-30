@@ -47,6 +47,7 @@ const (
 	configFilePathTemplate = "/tmp/%s-config"
 )
 
+// version - image tag map
 var k8sVersionImages = map[string]string{
 	"1.22": "kindest/node:v1.22.0",
 	"1.21": "kindest/node:v1.21.1",
@@ -113,7 +114,8 @@ func (r *KINDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	// Check DeletionTimestamp to decide if object is in deletion
 	if kindcluster.ObjectMeta.DeletionTimestamp.IsZero() {
-		// Object is not in deletion, so try to add the finalizer if it does not have the finalizer
+		// Object is not in deletion, so try to add the finalizer
+		// if it does not have the finalizer
 		if !containsString(finalizerName, kindcluster.GetFinalizers()) {
 			controllerutil.AddFinalizer(&kindcluster, finalizerName)
 
@@ -128,7 +130,8 @@ func (r *KINDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			return ctrl.Result{}, nil
 		}
 	} else {
-		// Object is in deletion, so check the finalizer and delete the related resources, cluster and config secret
+		// Object is in deletion, so check the finalizer and delete the related resources,
+		// cluster and config secret
 		if containsString(finalizerName, kindcluster.GetFinalizers()) {
 			if err := deleteCluster(provider, clusterName, r.Log); err != nil {
 				return ctrl.Result{}, err
@@ -183,7 +186,8 @@ func (r *KINDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 					Reason:    creationError.Error(),
 				})
 
-			// If an issue occurs while creation, set the failure message and the ready bool to false
+			// If an issue occurs while creation, set the failure message and the ready
+			// bool to false
 			kindcluster.Status.FailureMessage = fmt.Sprintf("Cluster cannot be crated: %s", creationError)
 			kindcluster.Status.Ready = &falseBool
 		} else {
@@ -207,7 +211,8 @@ func (r *KINDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	r.Log.Info("KINDCluster status was updated", clusterNameKey, clusterName)
 
-	// If an error occured while the creation of cluster, return the error after the status subresource was updated
+	// If an error occured while the creation of cluster, return the error after the
+	// status subresource was updated
 	if creationError != nil {
 		return ctrl.Result{}, creationError
 	}
@@ -254,7 +259,8 @@ func deleteCluster(provider *cluster.Provider, clusterName string, log logr.Logg
 
 	// Delete the kind cluster
 	// No check has been done as to whether the cluster already exists.
-	// Because the kind tool is idempotent and it does not return an error when it cannot find the cluster.
+	// Because the kind tool is idempotent and it does not return an error when it
+	// cannot find the cluster.
 	if err := provider.Delete(clusterName, ""); err != nil {
 		log.Error(err, "unable to delete cluster")
 
@@ -304,7 +310,8 @@ func storeKubeconfigInSecret(c client.Client, clusterName, secretName, namespace
 			return err
 		}
 
-		// If the error type is "IsNotFound", this means that the config secret has not been created
+		// If the error type is "IsNotFound", this means that the config secret has not
+		// been created
 		// Start to create the config secret
 
 		// Read the kubeconfig from the temporary file
@@ -333,7 +340,8 @@ func storeKubeconfigInSecret(c client.Client, clusterName, secretName, namespace
 		log.Info("Config secret successfully created", secretNameKey, secretName, clusterNameKey, clusterName)
 	}
 
-	// If err is nil, this means that the config secret was successfully created earlier, so do nothing and return nil
+	// If err is nil, this means that the config secret was successfully created earlier,
+	// so do nothing and return nil
 	return nil
 }
 

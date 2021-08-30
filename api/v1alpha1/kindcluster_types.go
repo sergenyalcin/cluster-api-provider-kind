@@ -43,6 +43,7 @@ type KINDClusterSpec struct {
 
 	//+kubebuilder:validation:MaxLength=64
 	// Specifies the cluster name, the KIND Cluster will be created with this name
+	// It has not an omitempty tag, so this field is required
 	ClusterName string `json:"clusterName"`
 
 	//+kubebuilder:validation:Enum="1.22";"1.21";"1.20";"1.19";"1.18";"1.17";"1.16";"1.15";"1.14"
@@ -51,12 +52,6 @@ type KINDClusterSpec struct {
 	KubernetesVersion string `json:"kubernetesVersion,omitempty"`
 }
 
-// - Add maybe another field to spec e.g. Kubernetes version
-// - Show editor during code demo
-// - Send slides when done to marcel@giantswarm.io
-// - Make sure to have 2 quesitons at the end
-// - Time yourself at least once
-
 // KINDClusterStatus defines the observed state of KINDCluster
 type KINDClusterStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
@@ -64,9 +59,12 @@ type KINDClusterStatus struct {
 
 	// Represents the state of cluster
 	// true for ready cluster, false for unready/uncreated cluster
+	// The information about whether the cluster is ready or not is obtained
+	// by relying on the Kind library functions.
 	Ready *bool `json:"ready,omitempty"`
 
-	// Represents the failure reason of the cluster creation, it reports the error that returned from the kind tool
+	// Represents the failure reason of the cluster creation,
+	// it reports the error that returned from the kind tool
 	FailureMessage string `json:"failureMessage,omitempty"`
 
 	// Represents the status conditions, they are important to see the historical infromation
